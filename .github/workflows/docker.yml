@@ -52,7 +52,7 @@ jobs:
             exit 1
           fi
 
-          echo "image=${{ env.REGISTRY }}/$owner/$repo" >> "$GITHUB_OUTPUT"
+          echo "image=${{ env.REGISTRY }}/$owner/${repo}-fork" >> "$GITHUB_OUTPUT"
 
       - name: Extract metadata
         id: meta
