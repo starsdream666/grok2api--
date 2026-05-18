@@ -13,7 +13,6 @@ ASSETS_CDN = "https://assets.grok.com"
 
 # ── App-chat (SSE streaming, new conversation) ──────────────────────────
 CHAT              = f"{BASE}/rest/app-chat/conversations/new"
-CONSOLE_RESPONSES = "https://console.x.ai/v1/responses"
 
 # ── Asset management ─────────────────────────────────────────────────────
 ASSETS_UPLOAD     = f"{BASE}/rest/app-chat/upload-file"        # POST (base64 upload)
@@ -46,7 +45,7 @@ LIVEKIT_TOKENS    = f"{BASE}/rest/livekit/tokens"              # POST
 
 __all__ = [
     "BASE", "ASSETS_CDN",
-    "CHAT", "CONSOLE_RESPONSES",
+    "CHAT",
     "ASSETS_UPLOAD", "ASSETS_LIST", "ASSETS_DELETE", "ASSETS_DOWNLOAD",
     "RATE_LIMITS",
     "ACCEPT_TOS", "NSFW_MGMT", "SET_BIRTH",
