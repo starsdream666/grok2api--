@@ -18,6 +18,7 @@ Grok2API 是一个基于 **FastAPI** 构建的 Grok 网关，支持将 Grok Web 
 - OpenAI 兼容接口：`/v1/models`、`/v1/chat/completions`、`/v1/responses`、`/v1/images/generations`、`/v1/images/edits`、`/v1/videos`、`/v1/videos/{video_id}`、`/v1/videos/{video_id}/content`
 - Anthropic 兼容接口：`/v1/messages`
 - 支持流式与非流式对话、显式思考输出、函数工具结构透传，以及统一的 token / usage 统计
+- 支持将 `grok-4`、`grok-4.3`、`grok-4.20*` 等 console 模型通过 `console.x.ai/v1/responses` 路由，basic 账号也可直接调用
 - 支持多账号池、层级选号、失败反馈、额度同步与自动维护
 - 支持本地缓存图片、视频与本地代理链接返回
 - 支持文生图、图像编辑、文生视频、图生视频
@@ -243,6 +244,17 @@ docker compose up -d
 | `grok-4.20-expert` | `expert` | `super`，优先使用高等级账号池 |
 | `grok-4.20-heavy` | `heavy` | `heavy` |
 | `grok-4.3-beta` | `grok-420-computer-use-sa` | `super` |
+| `grok-4.3` | `fast` | `basic`，经 `console.x.ai/v1/responses` 路由 |
+| `grok-4` | `fast` | `basic`，经 `console.x.ai/v1/responses` 路由 |
+| `grok-4.20` | `fast` | `basic`，经 `console.x.ai/v1/responses` 路由 |
+| `grok-4.20-reasoning` | `fast` | `basic`，经 `console.x.ai/v1/responses` 路由 |
+| `grok-4.20-non-reasoning` | `fast` | `basic`，经 `console.x.ai/v1/responses` 路由 |
+| `grok-4.20-multi-agent` | `fast` | `basic`，经 `console.x.ai/v1/responses` 路由 |
+
+> 说明：
+> - 上述 6 个 console 模型使用与 grok.com 共用的 SSO cookie，但实际请求会发送到 `https://console.x.ai/v1/responses`。
+> - 表中的 `mode` / `tier` 仅表示本地账号池选择策略；真正的上游模型 ID 由 `console_model` 映射决定。
+> - `GET /v1/models` 与 WebUI 模型下拉会按当前可用账号池过滤；只有 basic 账号时，通常会显示 9 个模型：`grok-4`、`grok-4.3`、`grok-4.20`、`grok-4.20-fast`、`grok-4.20-multi-agent`、`grok-4.20-non-reasoning`、`grok-4.20-reasoning`、`grok-4.20-0309-non-reasoning`、`grok-imagine-image-lite`。
 
 ### Image
 
@@ -273,8 +285,8 @@ docker compose up -d
 | `GET /v1/models` | 是 | 列出当前启用模型 |
 | `GET /v1/models/{model_id}` | 是 | 获取单个模型信息 |
 | `POST /v1/chat/completions` | 是 | 对话 / 图像 / 视频统一入口 |
-| `POST /v1/responses` | 是 | OpenAI Responses API 兼容子集 |
-| `POST /v1/messages` | 是 | Anthropic Messages API 兼容接口 |
+| `POST /v1/responses` | 是 | OpenAI Responses API 兼容接口；console 模型下可透传上游原生 Responses 事件/对象 |
+| `POST /v1/messages` | 是 | Anthropic Messages API 兼容接口；console 模型经 Chat Completions bridge 复用同一路由 |
 | `POST /v1/images/generations` | 是 | 独立图像生成接口 |
 | `POST /v1/images/edits` | 是 | 独立图像编辑接口 |
 | `POST /v1/videos` | 是 | 异步视频任务创建 |
@@ -323,7 +335,7 @@ curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $GROK2API_API_KEY" \
   -d '{
-    "model": "grok-4.20-auto",
+    "model": "grok-4.3",
     "stream": true,
     "reasoning_effort": "high",
     "messages": [
@@ -385,6 +397,7 @@ curl http://localhost:8000/v1/chat/completions \
 | `temperature` / `top_p` | 采样参数，默认 `0.8` / `0.95` |
 | `tools` | OpenAI function tools 结构 |
 | `tool_choice` | `auto`, `required` 或指定函数工具 |
+| 响应根字段 `search_sources` | console 模型启用 Web Search 时，会返回结构化信源列表 |
 | `image_config` | 图像模型参数 |
 | \|_ `n` | `lite` 为 `1-4`，其他图像模型为 `1-10`，编辑模型为 `1-2` |
 | \|_ `size` | `1280x720`, `720x1280`, `1792x1024`, `1024x1792`, `1024x1024` |
@@ -410,7 +423,7 @@ curl http://localhost:8000/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $GROK2API_API_KEY" \
   -d '{
-    "model": "grok-4.20-auto",
+    "model": "grok-4.20-reasoning",
     "input": "解释一下量子隧穿",
     "instructions": "用简洁的中文回答",
     "stream": true,
@@ -434,6 +447,7 @@ curl http://localhost:8000/v1/responses \
 | \|_ `effort` | `none` 会关闭思考输出；其他值会开启思考输出 |
 | `temperature` / `top_p` | 采样参数，默认 `0.8` / `0.95` |
 | `tools` / `tool_choice` | 支持函数工具；Responses API 的扁平工具格式会自动转换 |
+| `output[*].type=web_search_call` / 根字段 `search_sources` | console 模型启用 Web Search 时可返回搜索调用与信源列表 |
 
 <br>
 </details>
@@ -450,7 +464,7 @@ curl http://localhost:8000/v1/messages \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $GROK2API_API_KEY" \
   -d '{
-    "model": "grok-4.20-auto",
+    "model": "grok-4.3",
     "stream": true,
     "thinking": {
       "type": "enabled",
